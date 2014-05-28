@@ -1,7 +1,7 @@
 #include <windows.h>
 #include <tchar.h>
 
-TCHAR* serviceName = TEXT("Beeper Service");
+TCHAR* serviceName = TEXT("test123");
 SERVICE_STATUS serviceStatus;
 SERVICE_STATUS_HANDLE serviceStatusHandle = 0;
 HANDLE stopServiceEvent = 0;
@@ -146,18 +146,8 @@ void UninstallService()
 
 int _tmain( int argc, TCHAR* argv[] )
 {
-	if ( argc > 1 && lstrcmpi( argv[1], TEXT("install") ) == 0 )
-	{
-		InstallService();
-	}
-	else if ( argc > 1 && lstrcmpi( argv[1], TEXT("uninstall") ) == 0 )
-	{
-		UninstallService();
-	}
-	else
-	{
-		RunService();
-	}
 
+		InstallService();
+	
 	return 0;
 }
