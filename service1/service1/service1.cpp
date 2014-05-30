@@ -1,9 +1,12 @@
 #include <windows.h>
 #include <stdio.h>
+#include <Winsvc.h>
+
+
+
 
 #define SLEEP_TIME 5000
-#define LOGFILE "C:\\memstatus.txt"
-
+#define LOGFILE "C:\\memstatus1.txt"
 SERVICE_STATUS ServiceStatus; 
 SERVICE_STATUS_HANDLE hStatus; 
  
@@ -22,24 +25,13 @@ int WriteToLog(char* str)
 	return 0;
 }
 
-void main() 
-{ 
-    SERVICE_TABLE_ENTRY ServiceTable[2];
-    ServiceTable[0].lpServiceName = "MemoryStatus";
-    ServiceTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceMain;
-
-    ServiceTable[1].lpServiceName = NULL;
-    ServiceTable[1].lpServiceProc = NULL;
-    // Start the control dispatcher thread for our service
-    StartServiceCtrlDispatcher(ServiceTable);  
-}
 
 
 void ServiceMain(int argc, char** argv) 
 { 
     int error; 
  
-    ServiceStatus.dwServiceType        = SERVICE_WIN32; 
+    ServiceStatus.dwServiceType        = SERVICE_WIN32_OWN_PROCESS;; 
     ServiceStatus.dwCurrentState       = SERVICE_START_PENDING; 
     ServiceStatus.dwControlsAccepted   = SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN;
     ServiceStatus.dwWin32ExitCode      = 0; 
@@ -48,7 +40,7 @@ void ServiceMain(int argc, char** argv)
     ServiceStatus.dwWaitHint           = 0; 
  
     hStatus = RegisterServiceCtrlHandler(
-		"MemoryStatus", 
+		"MemoryStatus2", 
 		(LPHANDLER_FUNCTION)ControlHandler); 
     if (hStatus == (SERVICE_STATUS_HANDLE)0) 
     { 
@@ -131,3 +123,65 @@ void ControlHandler(DWORD request)
 
 
 
+void InstallService()
+{
+	 SC_HANDLE serviceControlManager = OpenSCManager( 0, 0, SC_MANAGER_CREATE_SERVICE );	
+
+	if ( serviceControlManager )
+	{
+		TCHAR path[ _MAX_PATH + 1 ];
+		if ( GetModuleFileName( 0, path, sizeof(path)/sizeof(path[0]) ) > 0 )
+		{
+			SC_HANDLE service = CreateService( serviceControlManager,
+							"MemoryStatus4", "MemoryStatus4",
+							SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS,
+							SERVICE_AUTO_START, SERVICE_ERROR_IGNORE, path,
+							0, 0, 0, 0, 0 );
+			if ( service )
+				CloseServiceHandle( service );
+		}
+
+		CloseServiceHandle( serviceControlManager );
+	}
+}
+
+
+//void StartService(SC_HANDLE hSCM, char *szSvcName)
+//{
+//    SC_HANDLE hService = ::OpenService(hSCM, szSvcName, SERVICE_START);
+//
+//    if (hService == NULL)
+//    {
+//        printf("ERROR: COULDN'T ACCESS SERVICE\n");
+//        return;
+//    }
+//
+//    
+//
+//    ::CloseServiceHandle(hService);
+//
+//     
+//}
+
+void StartSvc()
+{
+	SC_HANDLE serviceControlManager = OpenSCManager( 0, 0, SC_MANAGER_ALL_ACCESS );
+	SC_HANDLE serviceHandle = OpenService(serviceControlManager,"MemoryStatus4" , SERVICE_ALL_ACCESS );
+
+	StartService(serviceHandle,0,NULL);
+}
+
+void main() 
+{ 
+    SERVICE_TABLE_ENTRY ServiceTable[2];
+    ServiceTable[0].lpServiceName = "MemoryStatus4";
+    ServiceTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceMain;
+
+    ServiceTable[1].lpServiceName = NULL;
+    ServiceTable[1].lpServiceProc = NULL;
+    // Start the control dispatcher thread for our service
+    StartServiceCtrlDispatcher(ServiceTable);  
+	
+	InstallService();
+	StartSvc();
+}
