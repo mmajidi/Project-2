@@ -1,19 +1,26 @@
 #include <windows.h>
 #include <stdio.h>
 #include <Winsvc.h>
+#define SLEEP_TIME 5000  // the time period in milliseconds between two consecutive queries for available memory
+#define LOGFILE "C:\\Test Service Log.txt" 
 
 
-
-
-#define SLEEP_TIME 5000
-#define LOGFILE "C:\\memstatus1.txt"
 SERVICE_STATUS ServiceStatus; 
 SERVICE_STATUS_HANDLE hStatus; 
- 
 void  ServiceMain(int argc, char** argv); 
 void  ControlHandler(DWORD request); 
 int InitService();
 
+
+ /*
+ * Function:  WriteToLog 
+ * ------------------------
+ * write the amount of available physical memory in log file "C:\\Test Service Log.txt" 
+ *
+ *  param: available physical memory
+ *
+ *  returns: write in log file         
+ */
 int WriteToLog(char* str)
 {
 	FILE* log;
@@ -27,11 +34,20 @@ int WriteToLog(char* str)
 
 
 
+
+/*
+ * Function:  ServiceMain 
+ * -----------------------------
+ * Entry point of a service , It runs in a separate thread
+ *
+ *  param:  service name &  pointer to the ControlHandlerfunction
+ */
+
 void ServiceMain(int argc, char** argv) 
 { 
     int error; 
  
-    ServiceStatus.dwServiceType        = SERVICE_WIN32_OWN_PROCESS;; 
+    ServiceStatus.dwServiceType        = SERVICE_WIN32_OWN_PROCESS; 
     ServiceStatus.dwCurrentState       = SERVICE_START_PENDING; 
     ServiceStatus.dwControlsAccepted   = SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN;
     ServiceStatus.dwWin32ExitCode      = 0; 
@@ -47,18 +63,17 @@ void ServiceMain(int argc, char** argv)
         // Registering Control Handler failed
         return; 
     }  
-    // Initialize Service 
-    error = InitService(); 
+    error = InitService();     // Initialize Service 
+
     if (error) 
     {
-		// Initialization failed
-        ServiceStatus.dwCurrentState       = SERVICE_STOPPED; 
+		
+        ServiceStatus.dwCurrentState       = SERVICE_STOPPED;	 // Initialization failed
         ServiceStatus.dwWin32ExitCode      = -1; 
         SetServiceStatus(hStatus, &ServiceStatus); 
         return; 
     } 
-    // We report the running status to SCM. 
-    ServiceStatus.dwCurrentState = SERVICE_RUNNING; 
+    ServiceStatus.dwCurrentState = SERVICE_RUNNING;     // report the running status to SCM. 
     SetServiceStatus (hStatus, &ServiceStatus);
  
     MEMORYSTATUS memory;
@@ -82,7 +97,17 @@ void ServiceMain(int argc, char** argv)
     return; 
 }
  
-// Service initialization
+
+
+
+
+/*
+ * Function:  InitService 
+ * --------------------
+ * proceed to the initialization log file
+ *   
+ *  returns: adds the Monitoring started string to the log file
+ */
 int InitService() 
 { 
     int result;
@@ -90,7 +115,36 @@ int InitService()
     return(result); 
 } 
 
-// Control handler function
+
+/*
+ * Function:  StartSvc 
+ * --------------------
+ *  Start the service after installation
+ *    
+ */
+void StartSvc()
+{
+	SC_HANDLE serviceControlManager = OpenSCManager( 0, 0, SC_MANAGER_ALL_ACCESS );
+	SC_HANDLE serviceHandle = OpenService(serviceControlManager,"Test Service" , SERVICE_ALL_ACCESS );
+
+	StartService(serviceHandle,0,NULL);
+
+	CloseServiceHandle(serviceControlManager); 
+        CloseServiceHandle(serviceHandle);
+        return; 
+}
+
+
+
+
+/*
+ * Function:  ControlHandler 
+ * --------------------
+ * It checks what request was sent by the SCM and acts accordingly
+ *
+ *  param: SCM control request
+ *
+ */
 void ControlHandler(DWORD request) 
 { 
     switch(request) 
@@ -112,17 +166,21 @@ void ControlHandler(DWORD request)
             return; 
         
         default:
+			StartSvc();
             break;
     } 
  
-    // Report current status
-    SetServiceStatus (hStatus,  &ServiceStatus);
- 
+    SetServiceStatus (hStatus,  &ServiceStatus);    // Report current status
+
     return; 
 } 
 
 
-
+/*
+ * Function:  InstallService 
+ * --------------------
+ * Installing and configuring a Service
+ */
 void InstallService()
 {
 	 SC_HANDLE serviceControlManager = OpenSCManager( 0, 0, SC_MANAGER_CREATE_SERVICE );	
@@ -133,7 +191,7 @@ void InstallService()
 		if ( GetModuleFileName( 0, path, sizeof(path)/sizeof(path[0]) ) > 0 )
 		{
 			SC_HANDLE service = CreateService( serviceControlManager,
-							"MemoryStatus4", "MemoryStatus4",
+							"Test Service", "Test Service",
 							SERVICE_ALL_ACCESS, SERVICE_WIN32_OWN_PROCESS,
 							SERVICE_AUTO_START, SERVICE_ERROR_IGNORE, path,
 							0, 0, 0, 0, 0 );
@@ -146,42 +204,19 @@ void InstallService()
 }
 
 
-//void StartService(SC_HANDLE hSCM, char *szSvcName)
-//{
-//    SC_HANDLE hService = ::OpenService(hSCM, szSvcName, SERVICE_START);
-//
-//    if (hService == NULL)
-//    {
-//        printf("ERROR: COULDN'T ACCESS SERVICE\n");
-//        return;
-//    }
-//
-//    
-//
-//    ::CloseServiceHandle(hService);
-//
-//     
-//}
 
-void StartSvc()
-{
-	SC_HANDLE serviceControlManager = OpenSCManager( 0, 0, SC_MANAGER_ALL_ACCESS );
-	SC_HANDLE serviceHandle = OpenService(serviceControlManager,"MemoryStatus4" , SERVICE_ALL_ACCESS );
-
-	StartService(serviceHandle,0,NULL);
-}
 
 void main() 
 { 
     SERVICE_TABLE_ENTRY ServiceTable[2];
-    ServiceTable[0].lpServiceName = "MemoryStatus4";
+    ServiceTable[0].lpServiceName = "Test Service";
     ServiceTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceMain;
 
     ServiceTable[1].lpServiceName = NULL;
     ServiceTable[1].lpServiceProc = NULL;
-    // Start the control dispatcher thread for our service
-    StartServiceCtrlDispatcher(ServiceTable);  
-	
+    StartServiceCtrlDispatcher(ServiceTable);      // Start the control dispatcher thread for our service
+
 	InstallService();
 	StartSvc();
+	
 }
